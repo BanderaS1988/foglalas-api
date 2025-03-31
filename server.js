@@ -1,8 +1,8 @@
-// server.js
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const nodemailer = require("nodemailer");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -22,7 +22,7 @@ db.serialize(() => {
   )`);
 });
 
-// GET /booking
+// GET /booking - Foglalások lekérdezése
 app.get("/booking", (req, res) => {
   db.all("SELECT * FROM bookings ORDER BY datetime ASC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -30,7 +30,7 @@ app.get("/booking", (req, res) => {
   });
 });
 
-// POST /booking
+// POST /booking - Új foglalás hozzáadása
 app.post("/booking", (req, res) => {
   const { massageType, datetime, user } = req.body;
 
@@ -42,55 +42,41 @@ app.post("/booking", (req, res) => {
   );
   stmt.run(massageType, datetime, user, function (err) {
     if (err) return res.status(500).json({ error: err.message });
+
+    // EMAIL KÜLDÉS
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,  // A Gmail email címed
+        pass: process.env.EMAIL_PASS   // Gmail app jelszó
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: 'bazsolotifuti@gmail.com',  // Az admin email címe
+      subject: 'Új masszázs foglalás érkezett!',
+      text: `
+Új foglalás érkezett az appon keresztül:
+
+Név: ${user}
+Masszázs típus: ${massageType}
+Dátum & Időpont: ${datetime}
+      `
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("❌ Email küldési hiba:", error);
+      } else {
+        console.log("📧 Email elküldve:", info.response);
+      }
+    });
+
+    // Foglalás sikeres mentése után küldjük a választ
     res.status(201).json({ id: this.lastID });
   });
 });
-
-// Egyszerű admin felület, amely listázza a foglalásokat HTML-ben
-app.get("/admin", (req, res) => {
-  db.all("SELECT * FROM bookings ORDER BY datetime ASC", [], (err, rows) => {
-    if (err) return res.status(500).send("Adatbázis hiba!");
-
-    let html = `
-      <html>
-      <head>
-        <title>Foglalások Admin</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-        </style>
-      </head>
-      <body>
-        <h2>📅 Foglalások listája</h2>
-        <table>
-          <tr>
-            <th>ID</th>
-            <th>Masszázs típus</th>
-            <th>Dátum & Időpont</th>
-            <th>Felhasználó</th>
-          </tr>`;
-
-    rows.forEach(row => {
-      html += `
-          <tr>
-            <td>${row.id}</td>
-            <td>${row.massageType}</td>
-            <td>${row.datetime}</td>
-            <td>${row.user}</td>
-          </tr>`;
-    });
-
-    html += `
-        </table>
-      </body>
-      </html>`;
-
-    res.send(html);
-  });
-});
-
 
 // Start server
 app.listen(port, () => {
