@@ -46,6 +46,52 @@ app.post("/booking", (req, res) => {
   });
 });
 
+// Egyszerű admin felület, amely listázza a foglalásokat HTML-ben
+app.get("/admin", (req, res) => {
+  db.all("SELECT * FROM bookings ORDER BY datetime ASC", [], (err, rows) => {
+    if (err) return res.status(500).send("Adatbázis hiba!");
+
+    let html = `
+      <html>
+      <head>
+        <title>Foglalások Admin</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h2>📅 Foglalások listája</h2>
+        <table>
+          <tr>
+            <th>ID</th>
+            <th>Masszázs típus</th>
+            <th>Dátum & Időpont</th>
+            <th>Felhasználó</th>
+          </tr>`;
+
+    rows.forEach(row => {
+      html += `
+          <tr>
+            <td>${row.id}</td>
+            <td>${row.massageType}</td>
+            <td>${row.datetime}</td>
+            <td>${row.user}</td>
+          </tr>`;
+    });
+
+    html += `
+        </table>
+      </body>
+      </html>`;
+
+    res.send(html);
+  });
+});
+
+
 // Start server
 app.listen(port, () => {
   console.log(`✅ Foglalás API fut: http://localhost:${port}`);
