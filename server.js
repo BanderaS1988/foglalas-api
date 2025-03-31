@@ -68,7 +68,7 @@ function sendEmail(name, email, phone, month, day, timeSlot, massageType, durati
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_USER,  // A Gmail email címed
+      user: process.env.EMAIL_USER,  // Az email címed
       pass: process.env.EMAIL_PASS   // Gmail app jelszó
     }
   });
