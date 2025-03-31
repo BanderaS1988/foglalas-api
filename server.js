@@ -24,9 +24,11 @@ db.serialize(() => {
     timeSlot TEXT NOT NULL,
     massageType TEXT NOT NULL,
     duration TEXT NOT NULL,
-    comment TEXT
+    comment TEXT,
+    datetime TEXT NOT NULL  
   )`);
 });
+
 
 // GET /booking - Foglalások lekérdezése
 app.get("/booking", (req, res) => {
