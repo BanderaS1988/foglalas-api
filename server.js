@@ -31,26 +31,22 @@ app.get("/booking", (req, res) => {
 });
 
 // POST /booking - Új foglalás hozzáadása
-app.post("/booking", (req, res) => {
-  const { massageType, datetime, user } = req.body;
+app.post('/booking', (req, res) => {
+    const { name, email, phone, month, day, timeSlot, massageType, duration } = req.body;
 
-  if (!massageType || !datetime || !user)
-    return res.status(400).json({ error: "Minden mező kötelező." });
+    const newBooking = new Booking({ name, email, phone, month, day, timeSlot, massageType, duration });
+    newBooking.save()
+        .then(() => {
+            // Ha a foglalás sikeresen mentve, küldj emailt
+            sendEmail(name, email, phone, month, day, timeSlot, massageType, duration);
+            res.status(200).send('Foglalás sikeresen elküldve!');
+        })
+        .catch(err => {
+            console.error("❌ Hiba a foglalás mentésekor:", err); // Hiba logolása
+            res.status(500).send('Hiba történt a foglalás mentése során.');
+        });
+});
 
-  const stmt = db.prepare(
-    "INSERT INTO bookings (massageType, datetime, user) VALUES (?, ?, ?)"
-  );
-  stmt.run(massageType, datetime, user, function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-
-    // EMAIL KÜLDÉS
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,  // A Gmail email címed
-        pass: process.env.EMAIL_PASS   // Gmail app jelszó
-      }
-    });
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
