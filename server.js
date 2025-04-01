@@ -8,8 +8,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
-app.use(bodyParser.json());
+app.use(cors()); // Engedélyezd a CORS-t, hogy Unity kommunikálhasson
+app.use(bodyParser.json()); // JSON adatokat fogadunk
 
 // SQLite init
 const db = new sqlite3.Database("bookings.db");
@@ -29,7 +29,6 @@ db.serialize(() => {
   )`);
 });
 
-
 // GET /booking - Foglalások lekérdezése
 app.get("/booking", (req, res) => {
   db.all("SELECT * FROM bookings ORDER BY datetime ASC", [], (err, rows) => {
@@ -42,8 +41,9 @@ app.get("/booking", (req, res) => {
 app.post('/booking', (req, res) => {
     try {
         const { name, email, phone, month, day, timeSlot, massageType, duration, comment } = req.body;
-
-        console.log("Foglalás adatai: ", req.body);  // Ezt adja ki a logba
+        
+        // Naplózzuk a beérkező adatokat
+        console.log("Foglalás adatai: ", req.body);  
 
         if (!name || !email || !phone || !month || !day || !timeSlot || !massageType || !duration) {
             return res.status(400).json({ error: "Minden mező kötelező." });
@@ -67,7 +67,6 @@ app.post('/booking', (req, res) => {
         res.status(500).json({ error: "Hiba történt a foglalás mentése során." });
     }
 });
-
 
 // Admin email küldés
 function sendEmailToAdmin(name, email, phone, month, day, timeSlot, massageType, duration, comment) {
