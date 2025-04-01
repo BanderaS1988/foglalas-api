@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// SQLite init
+// SQLite adatbázis inicializálása
 const db = new sqlite3.Database("bookings.db");
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -28,6 +28,11 @@ db.serialize(() => {
     comment TEXT,
     datetime TEXT NOT NULL  
   )`);
+});
+
+// GET / - Alapértelmezett válasz a gyökér URL-en
+app.get("/", (req, res) => {
+  res.send("Foglalás API működik!");  // Válasz a gyökér URL-en
 });
 
 // GET /booking - Foglalások lekérdezése
@@ -47,8 +52,10 @@ app.post('/booking', (req, res) => {
             return res.status(400).json({ error: "Minden mező kötelező." });
         }
 
-        // Mentés az adatbázisba
-        const datetime = new Date().toISOString();  // Aktuális dátum és idő ISO formátumban
+        // Aktuális dátum és idő ISO formátumban
+        const datetime = new Date().toISOString();
+
+        // Adatok mentése az adatbázisba
         const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime, function (err) {
             if (err) return res.status(500).json({ error: err.message });
