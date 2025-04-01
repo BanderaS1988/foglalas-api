@@ -43,22 +43,23 @@ app.post('/booking', (req, res) => {
     try {
         const { name, email, phone, month, day, timeSlot, massageType, duration, comment } = req.body;
 
+        console.log("Foglalás adatai: ", req.body);  // Ezt adja ki a logba
+
         if (!name || !email || !phone || !month || !day || !timeSlot || !massageType || !duration) {
             return res.status(400).json({ error: "Minden mező kötelező." });
         }
 
-        // Mentés az adatbázisba
-        const datetime = new Date().toISOString();  // Beállítjuk az aktuális dátumot és időt
-        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime, function (err) {
-            if (err) return res.status(500).json({ error: err.message });
+        // Adatbázisba mentés
+        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, function (err) {
+            if (err) {
+                console.log("Hiba a mentés során: ", err);
+                return res.status(500).json({ error: err.message });
+            }
 
-            // Admin email küldése
+            console.log("Foglalás sikeresen mentve!");  // Ha minden oké
             sendEmailToAdmin(name, email, phone, month, day, timeSlot, massageType, duration, comment);
-            
-            // Felhasználói email küldése
             sendEmailToUser(name, email, phone, month, day, timeSlot, massageType, duration, comment);
-
             res.status(201).json({ id: this.lastID });
         });
     } catch (error) {
@@ -66,6 +67,7 @@ app.post('/booking', (req, res) => {
         res.status(500).json({ error: "Hiba történt a foglalás mentése során." });
     }
 });
+
 
 // Admin email küldés
 function sendEmailToAdmin(name, email, phone, month, day, timeSlot, massageType, duration, comment) {
