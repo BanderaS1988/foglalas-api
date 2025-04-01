@@ -48,8 +48,9 @@ app.post('/booking', (req, res) => {
         }
 
         // Mentés az adatbázisba
-        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, function (err) {
+        const datetime = new Date().toISOString();  // Beállítjuk az aktuális dátumot és időt
+        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime, function (err) {
             if (err) return res.status(500).json({ error: err.message });
 
             // Admin email küldése
