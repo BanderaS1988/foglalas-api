@@ -3,15 +3,16 @@ const sqlite3 = require("sqlite3").verbose();
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
+require('dotenv').config(); // Környezeti változók betöltése
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware a JSON adatfeldolgozáshoz
+// Middleware
 app.use(cors());
-app.use(bodyParser.json());  // JSON formátumú kérés feldolgozása
+app.use(bodyParser.json());
 
-// SQLite adatbázis inicializálása
+// SQLite init
 const db = new sqlite3.Database("bookings.db");
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -29,32 +30,35 @@ db.serialize(() => {
   )`);
 });
 
+// GET /booking - Foglalások lekérdezése
+app.get("/booking", (req, res) => {
+  db.all("SELECT * FROM bookings ORDER BY datetime ASC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
 // POST /booking - Új foglalás hozzáadása
 app.post('/booking', (req, res) => {
     try {
-        // Log a bejövő adatokat a szerver naplóba
-        console.log("Foglalás adatai: ", req.body);
-
-        // Destrukturálás az adatok kiemeléséhez
         const { name, email, phone, month, day, timeSlot, massageType, duration, comment } = req.body;
 
-        // Ellenőrzés, hogy minden szükséges mezőt megkaptunk-e
         if (!name || !email || !phone || !month || !day || !timeSlot || !massageType || !duration) {
             return res.status(400).json({ error: "Minden mező kötelező." });
         }
 
-        // Az adatbázisba mentés
-        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, function (err) {
-            if (err) {
-                console.log("Hiba a mentés során: ", err);
-                return res.status(500).json({ error: err.message });
-            }
+        // Mentés az adatbázisba
+        const datetime = new Date().toISOString();  // Aktuális dátum és idő ISO formátumban
+        const stmt = db.prepare("INSERT INTO bookings (name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        stmt.run(name, email, phone, month, day, timeSlot, massageType, duration, comment, datetime, function (err) {
+            if (err) return res.status(500).json({ error: err.message });
 
-            console.log("Foglalás sikeresen mentve!");
-            // Email küldése adminnak és a felhasználónak
+            // Admin email küldése
             sendEmailToAdmin(name, email, phone, month, day, timeSlot, massageType, duration, comment);
+            
+            // Felhasználói email küldése
             sendEmailToUser(name, email, phone, month, day, timeSlot, massageType, duration, comment);
+
             res.status(201).json({ id: this.lastID });
         });
     } catch (error) {
@@ -63,76 +67,75 @@ app.post('/booking', (req, res) => {
     }
 });
 
-// Email küldés az adminnak
+// Admin email küldés
 function sendEmailToAdmin(name, email, phone, month, day, timeSlot, massageType, duration, comment) {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'your-email@gmail.com',   // A Te email címed
-            pass: 'your-email-password'     // A Te email jelszavad
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
         }
     });
 
-    const mailOptions = {
-        from: 'your-email@gmail.com',  // A Te email címed
-        to: 'admin-email@example.com',  // Az admin email címe
+    const mailOptionsAdmin = {
+        from: process.env.EMAIL_USER,
+        to: 'bazsolotifuti@gmail.com', // Admin email címe
         subject: 'Új masszázs foglalás',
         text: `Új foglalás érkezett:
-               Név: ${name}
-               Email: ${email}
-               Telefonszám: ${phone}
-               Dátum: ${month} ${day}
-               Időablak: ${timeSlot}
-               Masszázs Típus: ${massageType}
-               Időtartam: ${duration}
-               Megjegyzés: ${comment || "Nincs megjegyzés."}`
+Név: ${name}
+Email: ${email}
+Telefonszám: ${phone}
+Dátum: ${month} ${day}
+Időablak: ${timeSlot}
+Masszázs Típus: ${massageType}
+Időtartam: ${duration}
+Megjegyzés: ${comment}`
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
+    transporter.sendMail(mailOptionsAdmin, (error, info) => {
         if (error) {
-            console.log("Hiba az email küldés során: ", error);
+            console.error("❌ Hiba az admin email küldésénél:", error);
         } else {
-            console.log('Email elküldve: ' + info.response);
+            console.log("📧 Admin email elküldve:", info.response);
         }
     });
 }
 
-// Email küldés a felhasználónak
+// Felhasználói email küldése
 function sendEmailToUser(name, email, phone, month, day, timeSlot, massageType, duration, comment) {
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'your-email@gmail.com',   // A Te email címed
-            pass: 'your-email-password'     // A Te email jelszavad
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
         }
     });
 
-    const mailOptions = {
-        from: 'your-email@gmail.com',  // A Te email címed
-        to: email,  // A felhasználó email címe
-        subject: 'Foglalás visszaigazolás',
-        text: `Kedves ${name}!
+    const mailOptionsUser = {
+        from: process.env.EMAIL_USER,
+        to: email, // Felhasználói email
+        subject: 'Masszázs időpontfoglalás visszaigazolás',
+        text: `Kedves ${name},
 
-               Köszönjük a foglalását! Az alábbi részletekben található:
-               Dátum: ${month} ${day}
-               Időablak: ${timeSlot}
-               Masszázs Típus: ${massageType}
-               Időtartam: ${duration}
-               Megjegyzés: ${comment || "Nincs megjegyzés."}
-               
-               Várjuk szeretettel!`
+A foglalásod sikeresen rögzítésre került:
+- Masszázs típusa: ${massageType}
+- Időpont: ${month} ${day}, ${timeSlot}
+- Időtartam: ${duration}
+- Megjegyzés: ${comment}
+
+Kérjük, ne habozz keresni, ha bármi kérdésed lenne!`
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
+    transporter.sendMail(mailOptionsUser, (error, info) => {
         if (error) {
-            console.log("Hiba az email küldés során: ", error);
+            console.error("❌ Hiba a felhasználói email küldésénél:", error);
         } else {
-            console.log('Visszaigazoló email elküldve: ' + info.response);
+            console.log("📧 Felhasználói email elküldve:", info.response);
         }
     });
 }
 
-// Indítsuk el a szervert
+// Start server
 app.listen(port, () => {
-    console.log(`API fut a ${port}-es porton`);
+    console.log(`✅ Foglalás API fut: http://localhost:${port}`);
 });
